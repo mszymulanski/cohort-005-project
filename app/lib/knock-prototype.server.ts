@@ -57,3 +57,71 @@ export async function triggerDiscussionReply(replyId: number) {
     },
   });
 }
+
+// ---- Notification Feed prototype (ticket: "What does the Notification Feed look like in Cadence?") ----
+// All catalogue kinds go through the one workflow that exists in Knock (discussion-reply); the
+// rendered copy and link ride in `data`. Real workflows per Notification are a build-time job.
+export const SAMPLE_KINDS = [
+  "refund-declined",
+  "refund-approved",
+  "refund-requested",
+  "seat-claimed",
+  "enrollment",
+  "discussion-question",
+  "discussion-reply",
+] as const;
+export type SampleKind = (typeof SAMPLE_KINDS)[number];
+
+export async function seedSample(recipientId: number, kind: SampleKind) {
+  const pick = (id: number) => db.select().from(users).where(eq(users.id, id)).get()!;
+  const actors = [5, 6, 8, 9].map(pick);
+  const actor = actors[Math.floor(Math.random() * actors.length)];
+  const course = "Introduction to TypeScript";
+  const lessonLink = "/courses/introduction-to-typescript/lessons/1";
+  const samples: Record<SampleKind, { title: string; body: string; link: string; system?: boolean }> = {
+    "refund-declined": {
+      title: `Your refund request for “${course}” was declined`,
+      body: "Decision note: you've completed more than half of the course. You can ask again.",
+      link: "/dashboard",
+      system: true,
+    },
+    "refund-approved": {
+      title: `Your refund request for “${course}” was approved`,
+      body: "$49.00 will go back to your original payment method.",
+      link: "/dashboard",
+      system: true,
+    },
+    "refund-requested": {
+      title: `${actor.name} requested a refund for “${course}”`,
+      body: "$49.00 · “The course wasn't what I expected.”",
+      link: "/admin/refunds",
+    },
+    "seat-claimed": {
+      title: `${actor.name} claimed a Seat in “${course}”`,
+      body: "3 Seats left on your Team Licence.",
+      link: "/team",
+    },
+    enrollment: {
+      title: `${actor.name} enrolled in “${course}”`,
+      body: "",
+      link: "/instructor/1/students",
+    },
+    "discussion-question": {
+      title: `${actor.name} asked a question in “What is TypeScript?”`,
+      body: "“Does `unknown` replace `any` everywhere, or only at API boundaries?”",
+      link: lessonLink,
+    },
+    "discussion-reply": {
+      title: `${actor.name} replied to your question in “What is TypeScript?”`,
+      body: "“Mostly at boundaries — `any` still shows up in migration code.”",
+      link: lessonLink,
+    },
+  };
+  const s = samples[kind];
+  await Promise.all([identifyUser(recipientId), identifyUser(actor.id)]);
+  return knock.workflows.trigger("discussion-reply", {
+    recipients: [String(recipientId)],
+    ...(s.system ? {} : { actor: String(actor.id) }),
+    data: { kind, title: s.title, body: s.body, link: s.link },
+  });
+}

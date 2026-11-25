@@ -3,6 +3,11 @@ import type { Route } from "./+types/layout.app";
 import { Sidebar } from "~/components/sidebar";
 import { DevUI } from "~/components/dev-ui";
 import { Toaster } from "sonner";
+import {
+  FeedPrototypeProvider,
+  FeedPrototypeBar,
+  FeedTopBarB,
+} from "~/components/prototype/notification-feed-prototype";
 import { getCurrentUserId, getDevCountry } from "~/lib/session";
 import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
 import { eq, and, or, sql, desc } from "drizzle-orm";
@@ -228,6 +233,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
   } = loaderData;
 
   return (
+    <FeedPrototypeProvider currentUserId={currentUser?.id ?? null}>
     <div className="flex h-screen overflow-hidden">
       <Sidebar
         currentUser={currentUser}
@@ -235,6 +241,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
         isTeamAdmin={userIsTeamAdmin}
       />
       <main className="flex-1 overflow-y-auto">
+        <FeedTopBarB />
         <Outlet />
       </main>
       <DevUI
@@ -245,6 +252,8 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
         countries={countries}
       />
       <Toaster position="bottom-right" richColors closeButton />
+      <FeedPrototypeBar />
     </div>
+    </FeedPrototypeProvider>
   );
 }
