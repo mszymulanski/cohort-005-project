@@ -126,3 +126,45 @@ if (cmd === "check4") {
   await set({ in_app_feed: true, email: true });
   process.exit(0);
 }
+
+if (cmd === "check3b") {
+  const f = await feedFor(7);
+  console.log("before:", f.meta);
+  await f.feed.markAllAsRead();
+  for (const ms of [0, 1500, 4000]) {
+    await sleep(ms);
+    const g = await feedFor(7);
+    console.log(`+${ms}ms after markAllAsRead:`, g.meta.unread_count, "unread");
+  }
+  process.exit(0);
+}
+
+if (cmd === "check4b") {
+  // Same as check4, but preference keyed by WORKFLOW key instead of category.
+  const f = await feedFor(7);
+  const set = async (channel_types: Record<string, boolean>) => {
+    const prefs: any = await f.knock.user.setPreferences({ workflows: { "discussion-reply": { channel_types } } } as any);
+    console.log("prefs now:", JSON.stringify(prefs.workflows), "| categories:", JSON.stringify(prefs.categories));
+  };
+  const trigger = async () => {
+    const a = await tokenFor(1);
+    await fetch(`${BASE}/api/prototype-knock`, { method: "POST", headers: { cookie: a.cookie }, body: new URLSearchParams({ replyId: "14" }) });
+    await sleep(4000);
+    return (await feedFor(7)).meta.total_count;
+  };
+  // clear the earlier category-keyed prefs so only the workflow-keyed one is in play
+  await f.knock.user.setPreferences({ categories: {}, workflows: {} } as any);
+  const before = (await feedFor(7)).meta.total_count;
+  await set({ in_app_feed: false });
+  console.log("feed muted (workflow key): total", before, "->", await trigger(), "(should be unchanged)");
+  await set({ in_app_feed: true });
+  console.log("feed on: total ->", await trigger(), "(should be +1)");
+  process.exit(0);
+}
+
+if (cmd === "reset") {
+  const f = await feedFor(7);
+  await f.knock.user.setPreferences({ categories: {}, workflows: {} } as any);
+  console.log("preferences reset for user 7");
+  process.exit(0);
+}
